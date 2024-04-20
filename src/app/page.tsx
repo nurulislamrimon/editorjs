@@ -1,47 +1,86 @@
 "use client";
-
+import React, { useEffect, useRef } from "react";
 import EditorJS from "@editorjs/editorjs";
 import Header from "@editorjs/header";
-import { useEffect } from "react";
+import ImageTool from "@editorjs/image";
 
-export default function Home() {
-  const editor = new EditorJS({
-    holder: "editorjs",
-    // inlineToolbar: ["link", "marker", "bold", "italic"],
-    tools: {
-      header: {
-        class: Header,
-        inlineToolbar: true,
-        shortcut: "CMD+SHIFT+H",
-        config: {
-          placeholder: "Header",
-        },
+const DEFAULT_INIT_DATA = {
+  time: new Date().getTime(),
+  blocks: [
+    {
+      type: "header",
+      data: {
+        level: 1,
+        text: "My awesome story",
       },
     },
-    placeholder: "Let`s write an awesome story!",
-    // onChange: (api, event) => {
-    //   console.log("Now I know that Editor's content changed!", event, api);
-    // },
-  });
+  ],
+};
+const EditorComponent = () => {
+  const ejInstance = useRef();
 
-  const handleSubmit = () => {
-    editor
-      .save()
-      .then((outputData) => {
-        console.log("Article data: ", outputData);
-      })
-      .catch((error) => {
-        console.log("Saving failed: ", error);
-      });
+  const initEditor = () => {
+    const editor = new EditorJS({
+      holder: "editorjs",
+
+      onReady: () => {
+        ejInstance.current = editor;
+      },
+      autofocus: true,
+      onChange: async () => {
+        const content = await editor.saver.save();
+        console.log("Editor content changed!", content);
+      },
+
+      tools: {
+        header: Header,
+        image: {
+          class: ImageTool,
+          config: {
+            uploader: {
+              uploadByFile: async (file) => {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const response = await fetch(
+                  "http://localhost:4001/api/uploadImage/create",
+                  {
+                    method: "POST",
+                    // headers: {
+                    //   "Content-Type": "multipart/form-data",
+                    // },
+                    body: formData,
+                  }
+                );
+                const data = await response.json();
+                console.log(data);
+
+                return {
+                  success: 1,
+                  file: data.file,
+                };
+              },
+            },
+          },
+        },
+      },
+      data: DEFAULT_INIT_DATA,
+    });
   };
 
+  useEffect(() => {
+    if (!ejInstance.current) {
+      initEditor();
+    }
+  }, []);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      hello
+    <div>
+      <h3>data</h3>
+
       <div id="editorjs"></div>
-      <button onClick={handleSubmit} type="submit">
-        Submit
-      </button>
-    </main>
+    </div>
   );
-}
+};
+
+export default EditorComponent;
